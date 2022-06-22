@@ -1,3 +1,6 @@
+"""
+@author: Ivan ARMAND
+"""
 import itertools #to concatenate lists of lists
 import numpy as np #dynamic lists
 import matplotlib.pyplot as plt #to plot curves
