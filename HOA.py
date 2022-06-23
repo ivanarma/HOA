@@ -10,6 +10,7 @@ import tkinter as tk #to create a window with frames and canvas
 from tkinter import filedialog #to search a file
 from tkinter import ttk #to use some widgets
 import pandas as pd #to read xlsx and clipboard
+import xlsxwriter
 from matplotlib.figure import Figure #to draw figures on tkinter frame
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import warnings
