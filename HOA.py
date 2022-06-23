@@ -10,7 +10,6 @@ import tkinter as tk #to create a window with frames and canvas
 from tkinter import filedialog #to search a file
 from tkinter import ttk #to use some widgets
 import pandas as pd #to read xlsx and clipboard
-import xlsxwriter #to write xlsx
 from matplotlib.figure import Figure #to draw figures on tkinter frame
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import warnings
@@ -389,6 +388,7 @@ def create_table(method,Values,p):
     """give the errors table for a fitting method"""
     global tableframe
     popup=tk.Tk()
+    popup.title(method+" error table")
     Functions=["RMSE","R²","X²","ERRSQ","EASB","HYBRID","MPSD","ARE","a","b","c","d"]
     if p!=4:
         Functions=Functions[:-4+p]
@@ -405,35 +405,84 @@ def create_table(method,Values,p):
     for tab in Equations:
             if tab[0]==method:
                 tk.Label(tableframe, text = "method : "+method+", "+tab[1]).pack(side="top")
-    table["columns"]=tuple([method]+[str(T) for T in Temperatures])
-    table.column(method,anchor="center", width=80)
-    table.heading(method,text=method,anchor="center")
-    for T in range(len(Temperatures)):
-        table.column(str(Temperatures[T]),anchor="center", width=150)
-        table.heading(str(Temperatures[T]),text=str(Temperatures[T]),anchor="center")
-    for f in range(0,len(Functions)):
-        val=[Functions[f]]
+    if method=="virial":
+        Functions=["RMSE","R²","X²","ERRSQ","EASB","HYBRID","MPSD","ARE"]+["a"+str(i) for i in range(1,virial_number_of_a_parameters+1)]+["b"+str(i) for i in range(1,virial_number_of_b_parameters+1)]
+        tk.Label(tableframe, text = "virial analysis").pack(side="top")
+        table["columns"]=("col1","col2")
+        table.column("col1",anchor="center",width=80)
+        table.heading("col1",text="ln(y)=ln(x)+sum(ai*x^i)/T+sum(bi*x^i)",anchor="center")
+        table.column("col2",anchor="center", width=80)
+        table.heading("col2",text="value",anchor="center")
+        for f in range(0,len(Functions)):
+            val=[Functions[f],Values[f]]
+
+            table.insert(parent='',index='end',iid=f,text='',values=tuple(val))
+    else:
+        table["columns"]=tuple([method]+[str(T) for T in Temperatures])
+        table.column(method,anchor="center", width=80)
+        table.heading(method,text=method,anchor="center")
         for T in range(len(Temperatures)):
-            val.append(Values[T][f])
-        table.insert(parent='',index='end',iid=f,text='',values=tuple(val))
+            table.column(str(Temperatures[T]),anchor="center", width=150)
+            table.heading(str(Temperatures[T]),text=str(Temperatures[T]),anchor="center")
+        for f in range(0,len(Functions)):
+            val=[Functions[f]]
+            for T in range(len(Temperatures)):
+                val.append(Values[T][f])
+            table.insert(parent='',index='end',iid=f,text='',values=tuple(val))
     table.pack(fill = tk.BOTH,expand=tk.YES)
+    menubar = tk.Menu(popup)
+    popup.config(menu=menubar)
+    file_menu = tk.Menu(menubar,tearoff=False)
+    file_menu.add_command(label='Exit',command=popup.destroy)
+    menubar.add_cascade(label="File",menu=file_menu,underline=0)
     popup.mainloop()
 
 def draw_errors_analysis(Columns):
     """when you click error-array button """
-    if analysis_method=="clausius":
-        method=fit_selector.get()
-        graph.delete("err")
-        Values=[]
-        if fit_selector.get()=="automatic":
-            method=find_best_fits(Columns)
-        p=1
-        if method in P_2:
-            p=2
-        if method in P_3:
-            p=3
-        if method in P_4:
-            p=4
+    method=fit_selector.get()
+    graph.delete("err")
+    Values=[]
+    if fit_selector.get()=="automatic":
+        method=find_best_fits(Columns)
+    p=1
+    if method in P_2:
+        p=2
+    if method in P_3:
+        p=3
+    if method in P_4:
+        p=4
+    if analysis_method=="virial":
+        p=virial_number_of_a_parameters+virial_number_of_b_parameters
+        method="virial"
+        XX,YY=[],[]
+        for j in range(2,len(Columns),4):
+            GP,GQ=Columns[j],Columns[j+1]
+            GP,GQ=GQ,np.log(GP*1000)
+            XX.append(GP)
+            YY.append(GQ)
+        lenx=np.array([len(xx) for xx in XX])
+        TT=[]
+        for T in range(len(Temperatures)):
+            for i in range(lenx[T]):
+                TT.append(int(Temperatures[T]))
+        XX=np.array(list(itertools.chain.from_iterable(XX)))
+        YY=np.array(list(itertools.chain.from_iterable(YY)))
+        constants=curve_fit_virial(XX, TT, YY)
+        print(constants)
+        Xf=XX
+        a1,a2,a3,a4,a5,b1,b2=constants[0],constants[1],constants[2],constants[3],constants[4],constants[5],constants[6]
+        Yf=virial_function((XX,TT), a1,a2,a3,a4,a5,b1,b2)
+        Y=YY
+        rmse_t=number_to_string(RMSE(Yf-Y), nsd)
+        R2_t=number_to_string(Coefficient_of_nondetermination(Y, Yf), nsd)
+        X2_t=number_to_string(chi_square(Y, Yf), nsd)
+        errsq_t=number_to_string(ERRSQ(Y, Yf), nsd)
+        easb_t=number_to_string(EASB(Y,Yf), nsd)
+        hybrid_t=number_to_string(HYBRID(Y,Yf,p), nsd)
+        mpsd_t=number_to_string(MPSD(Y,Yf,p), nsd)
+        are_t=number_to_string(ARE(Y,Yf), nsd)
+        Values=[rmse_t,R2_t,X2_t,errsq_t,easb_t,hybrid_t,mpsd_t,are_t,constants[0],constants[1],constants[2],constants[3],constants[4],constants[5],constants[6]]
+    else:
         for j in range(2,len(Columns),4):
             X,Y=Columns[j],Columns[j+1]
             Xf=X
@@ -452,7 +501,7 @@ def draw_errors_analysis(Columns):
             mpsd_t=number_to_string(MPSD(Y,Yf,p), nsd)
             are_t=number_to_string(ARE(Y,Yf), nsd)
             Values.append([rmse_t,R2_t,X2_t,errsq_t,easb_t,hybrid_t,mpsd_t,are_t]+Val)
-        create_table(method,Values,p)
+    create_table(method,Values,p)
 
 def draw_array(Columns):
     """draw the table containing all the experimental datas entered"""
@@ -723,6 +772,7 @@ def save_graph5(Columns,foldername,method="Langmuir-Freundlich"):
     return Nf,HOA
 
 def plot_graph_virial(Columns,fig=Figure(figsize=(5,5),dpi=100)):
+    global virial_constants
     fig.clear()
     plotx = fig.add_subplot(111)
     plotx.set_title("Fit of adsorption curves, virial analysis")
@@ -833,12 +883,53 @@ def setting_analysis_method(name):
     global analysis_method
     analysis_method=name
 
+def how_it_works():
+    popup=tk.Tk()
+    popup.title('HOA calculus about page')
+    popup.geometry('600x400+50+50')   
+    menubar = tk.Menu(popup)
+    popup.config(menu=menubar)
+    file_menu = tk.Menu(menubar,tearoff=False)
+    file_menu.add_command(label='Exit',command=popup.destroy)
+    menubar.add_cascade(label="File",menu=file_menu,underline=0)
+    pan=tk.Frame(popup)
+    pan.pack(expand=tk.YES,fill=tk.BOTH)
+    Line1="Select analysis method : clausius-clapeyron or virial analysis, default : clausius-clapeyron"
+    Line2="Select number of isotherms you possess for calculus, then push the 'set_curves_number&temperatures' button, default : 3isotherms"
+    Line3="Then enter the temperatures your isotherms are about in kelvin. Please the numbers should be sorted in ascending order, then push the 'set_temperatures' button, default : 273,283,293 °K"
+    Line4="There are 2 ways to enter datas, "
+    Line5="You have to copy in your clipboard one excel column at a time containing adsorption isotherm, if so, please push 'paste button'"
+    Line6="You have an excel file containing the datas obtained from the software MicroActive when you push 'copy data' of an isotherm plot and you assemble everything from left to right without space"
+    Line7="If everything is correct, according to the method used the interface will change a little "
+    Line8="For clausius clapeyron : you can choose what fitting equations the program will use, default : automatic"
+    Line9="You can choose the initial values for the fitting methods (it is a bit useless)"
+    Line10="You can choose the scale of the HOA plot (don't choose less than 0 or equal to 0 for clausius-clapeyron) - default [0.3,2.3]"
+    Line11="You can choose the number of points of the fitting curves, and of the horizontal axis of HOA. The more the longer the program will take but the more precise the results will be"
+    Line12="You can click to the'errors_array' button to have the results of the quality of the selected fit for each isotherm fit in a table"
+    Line13="You can save the results. Create a folder, go to this folder and then select it. 5 png files will be generated and 1 excel file "
+    Line14="For virial analysis : 'errors_array' we display the 7 parameters, for HOA calculus only the 5 a parameters are important"
+    Line15="7 parameters are used ln(y)=ln(x)+sum(ai*x^i)/T+sum(bi*x^i) with a1,a2,a3,a4,a5 and b1,b2, two variable x and T"
+    Line16="Save results will generate 1png file and one excel corresponding of the HOA curve obtained"
+    Line17="23 June 2022, program made by Ivan ARMAND at Ångström laboratory"
+    Nums=["1.","2.1.","2.2.","3.","3.A","3.B","4.","4.A.1","4.A.2","4.A.3","4.A.4","4.A.5","4.A.6","4.B.1","4.B.2","4.B.3","date of the build/author"]
+    Text=[Line1,Line2,Line3,Line4,Line5,Line6,Line7,Line8,Line9,Line10,Line11,Line12,Line13,Line14,Line15,Line16,Line17]
+    lent=[len(l) for l in Text]
+    m=max(lent)+500
+    for line in range(len(Text)):
+        while len(Text[line])<=m:
+            Text[line]+=" "
+        lframe=tk.Frame(pan)
+        tk.Label(lframe, text = Nums[line],fg='red',anchor="w").pack(side="left")
+        tk.Label(lframe, text = Text[line],anchor="w").pack(side="right")
+        lframe.pack()
+    popup.mainloop()
+    
 ########################################################    
 
 ###creating a window###
 root = tk.Tk()
 root.title('HOA calculus')
-root.geometry('600x400+50+50')    
+root.geometry('600x400+50+50')
 #add panel
 pan = tk.Frame(root) #
 pan.pack(expand = tk.YES,fill = tk.BOTH) #panel is filling the window
@@ -856,7 +947,10 @@ file_menu.add_command(label='open_folder',command=open_folder)
 file_menu.add_command(label='open xlsx file',command=open_file)
 file_menu.add_separator()
 file_menu.add_command(label='Exit',command=root.destroy)
+about_menu = tk.Menu(menubar,tearoff=False)
+about_menu.add_command(label='how it works ?',command=how_it_works)
 menubar.add_cascade(label="File",menu=file_menu,underline=0)
+menubar.add_cascade(label="about the program",menu=about_menu,underline=0)
 ####################
 
 ###adding widgets###
