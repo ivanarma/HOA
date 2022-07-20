@@ -1,0 +1,10 @@
+packages used:
+itertools
+numpy
+matplotlib
+scipy
+tkinter
+pandas
+xlsxwriter
+warnings
+webbrowser
