@@ -14,6 +14,7 @@ import xlsxwriter
 from matplotlib.figure import Figure #to draw figures on tkinter frame
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import warnings
+import webbrowser
 warnings.filterwarnings("ignore")
 
 ####### Non-linear fitting functions ##################### 
@@ -333,6 +334,8 @@ def write_results(Cols,folder_path,best_fit):
     Nf,HOA=np.array(Nf),np.array(HOA)
     worksheet.write(0,0,"Amount adsorbed n [mmol/g]")
     worksheet.write(0,1,"-ΔHads [kJ/mol]")
+    worksheet.write(0,2,"made by ARMAND Ivan")
+    worksheet.write(0,3,"https://github.com/ivanarma/HOA")
     for i in range(len(Nf)):
         worksheet.write(i+1,0,"="+str(Nf[i]))
         worksheet.write(i+1,1,"="+str(HOA[i]))
@@ -409,6 +412,16 @@ def create_table(method,Values,p):
     if method=="virial":
         Functions=["RMSE","R²","X²","ERRSQ","EASB","HYBRID","MPSD","ARE"]+["a"+str(i) for i in range(1,virial_number_of_a_parameters+1)]+["b"+str(i) for i in range(1,virial_number_of_b_parameters+1)]
         tk.Label(tableframe, text = "virial analysis").pack(side="top")
+        fig = Figure(figsize=(7, 1), dpi=100)
+        wx = fig.add_subplot(111)
+        wx.text(0.2, 0.6, r'$ ln(p) = ln(n) + \frac{1}{T} \sum_{i=0}^{4} a_{i+1} n^{i} + \sum_{i=0}^{1} b_{i+1} n^{i}$', fontsize = 20)
+        canvas = FigureCanvasTkAgg(fig, master=tableframe)
+        canvas.get_tk_widget().pack(side="top", fill=tk.BOTH, expand=1)
+        canvas._tkcanvas.pack(side="top", fill=tk.BOTH, expand=1)
+        # Set the visibility of the Canvas figure
+        wx.get_xaxis().set_visible(False)
+        wx.get_yaxis().set_visible(False)
+        
         table["columns"]=("col1","col2")
         table.column("col1",anchor="center",width=80)
         table.heading("col1",text="ln(y)=ln(x)+sum(ai*x^i)/T+sum(bi*x^i)",anchor="center")
@@ -776,7 +789,7 @@ def plot_graph_virial(Columns,fig=Figure(figsize=(5,5),dpi=100)):
     global virial_constants
     fig.clear()
     plotx = fig.add_subplot(111)
-    plotx.set_title("Fit of adsorption curves, virial analysis")
+    plotx.set_title("Fit of adsorption curves, virial analysis "+r'$ ln(p) = ln(n) + \frac{1}{T} \sum_{i=0}^{4} a_{i+1} n^{i} + \sum_{i=0}^{1} b_{i+1} n^{i}$')
     N=np.arange(float(interva.get()),float(intervb.get()),(float(intervb.get())-float(interva.get()))/int(Number_of_amount_adsorbed_points.get()))
     XX=[]
     YY=[]
@@ -899,7 +912,7 @@ def how_it_works():
     Line2="Select number of isotherms you possess for calculus, then push the 'set_curves_number&temperatures' button, default : 3isotherms"
     Line3="Then enter the temperatures your isotherms are about in kelvin. Please the numbers should be sorted in ascending order, then push the 'set_temperatures' button, default : 273,283,293 °K"
     Line4="There are 2 ways to enter datas, "
-    Line5="You have to copy in your clipboard one excel column at a time containing adsorption isotherm, if so, please push 'paste button'"
+    Line5="You have to copy in your clipboard two excel column at a time containing adsorption isotherm (left column = relative pressure, right column = quantity adsorbed (mmol/g)) , if so, please push 'paste button'"
     Line6="You have an excel file containing the datas obtained from the software MicroActive when you push 'copy data' of an isotherm plot and you assemble everything from left to right without space"
     Line7="If everything is correct, according to the method used the interface will change a little "
     Line8="For clausius clapeyron : you can choose what fitting equations the program will use, default : automatic"
@@ -911,7 +924,8 @@ def how_it_works():
     Line14="For virial analysis : 'errors_array' we display the 7 parameters, for HOA calculus only the 5 a parameters are important"
     Line15="7 parameters are used ln(y)=ln(x)+sum(ai*x^i)/T+sum(bi*x^i) with a1,a2,a3,a4,a5 and b1,b2, two variable x and T"
     Line16="Save results will generate 1png file and one excel corresponding of the HOA curve obtained"
-    Line17="23 June 2022, program made by Ivan ARMAND at Ångström laboratory"
+    Line17="23 June 2022, program made by Ivan ARMAND during internship at Ångström laboratory."
+    url="https://github.com/ivanarma?tab=repositories"
     Nums=["1.","2.1.","2.2.","3.","3.A","3.B","4.","4.A.1","4.A.2","4.A.3","4.A.4","4.A.5","4.A.6","4.B.1","4.B.2","4.B.3","date of the build/author"]
     Text=[Line1,Line2,Line3,Line4,Line5,Line6,Line7,Line8,Line9,Line10,Line11,Line12,Line13,Line14,Line15,Line16,Line17]
     lent=[len(l) for l in Text]
@@ -923,8 +937,16 @@ def how_it_works():
         tk.Label(lframe, text = Nums[line],fg='red',anchor="w").pack(side="left")
         tk.Label(lframe, text = Text[line],anchor="w").pack(side="right")
         lframe.pack()
+    lframe=tk.Frame(pan)
+    tk.Label(lframe,text="Please check my github page for more informations : ",foreground="DarkOrchid3",font= ('Aerial 18')).pack(side="left")
+    link=tk.Label(lframe,text=url,cursor= "hand2", foreground= "dodger blue",font= ('Aerial 18'))
+    link.bind("<Button-1>", lambda e:open_url(url))
+    link.pack(side="right")
+    lframe.pack()
     popup.mainloop()
-    
+
+def open_url(url):
+   webbrowser.open_new_tab(url)
 ########################################################    
 
 ###creating a window###
